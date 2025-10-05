@@ -1,44 +1,64 @@
-version: '3.0'
+version: "3.9"
+
 services:
-  activepieces:
-    image: ghcr.io/activepieces/activepieces:0.70.1
-    container_name: activepieces
-    restart: unless-stopped
-    ## Enable the following line if you already use AP_EXECUTION_MODE with SANDBOXED or old activepieces, checking the breaking change documentation for more info.
-    ## privileged: true
+  redis:
+    image: redis:6
     ports:
-      - '8080:80'
+      - "6379:6379"
+
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: ${AP_POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${AP_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${AP_POSTGRES_DATABASE}
+    ports:
+      - "5432:5432"
+
+  backend:
+    image: activepieces/activepieces:latest
     depends_on:
       - postgres
       - redis
-    env_file: .env
-    volumes:
-      - ./cache:/usr/src/app/cache
-    networks:
-      - activepieces
-  postgres:
-    image: 'postgres:14.4'
-    container_name: postgres
-    restart: unless-stopped
-    env_file: .env
+    env_file:
+      - .env
     environment:
-      - 'POSTGRES_DB=${AP_POSTGRES_DATABASE}'
-      - 'POSTGRES_PASSWORD=${AP_POSTGRES_PASSWORD}'
-      - 'POSTGRES_USER=${AP_POSTGRES_USERNAME}'
+      - VIRTUAL_HOST=api.yourdomain.com
+      - LETSENCRYPT_HOST=api.yourdomain.com
+      - LETSENCRYPT_EMAIL=your@email.com
+    expose:
+      - "3000"
+
+  frontend:
+    image: activepieces/ui:latest
+    depends_on:
+      - backend
+    env_file:
+      - .env
+    environment:
+      - VIRTUAL_HOST=yourdomain.com
+      - LETSENCRYPT_HOST=yourdomain.com
+      - LETSENCRYPT_EMAIL=your@email.com
+    expose:
+      - "80"
+
+  nginx-proxy:
+    image: jwilder/nginx-proxy:latest
+    ports:
+      - "80:80"
+      - "443:443"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - activepieces
-  redis:
-    image: 'redis:7.0.7'
-    container_name: redis
-    restart: unless-stopped
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./certs:/etc/nginx/certs:rw
+      - ./vhost.d:/etc/nginx/vhost.d
+      - ./html:/usr/share/nginx/html
+
+  acme-companion:
+    image: nginxproxy/acme-companion
+    depends_on:
+      - nginx-proxy
     volumes:
-      - 'redis_data:/data'
-    networks:
-      - activepieces
-volumes:
-  postgres_data:
-  redis_data:
-networks:
-  activepieces:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./certs:/etc/nginx/certs:rw
+      - ./vhost.d:/etc/nginx/vhost.d
+      - ./html:/usr/share/nginx/html
