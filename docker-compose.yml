@@ -1,8 +1,17 @@
 version: "3.9"
 
 services:
+<<<<<<< HEAD
   redis:
     image: redis:6
+=======
+  activepieces:
+    image: ghcr.io/activepieces/activepieces:0.70.2
+    container_name: activepieces
+    restart: unless-stopped
+    ## Enable the following line if you already use AP_EXECUTION_MODE with SANDBOXED or old activepieces, checking the breaking change documentation for more info.
+    ## privileged: true
+>>>>>>> d0953783a5094ef56b33da4b72ab549e85a3e79d
     ports:
       - "6379:6379"
 
